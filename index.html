@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Uploader</title>
+</head>
+
+<body>
+    <h1>My file uploader</h1>
+
+    <input type="file" name="file" id="f">
+
+    <button type="button" id="upload">Read & Upload</button>
+
+    <div id="divOutput">
+
+    </div>
+
+
+    <script>
+        const btnUpload = document.getElementById("upload");
+
+        const divOutput = document.getElementById("divOutput");
+
+        const f = document.getElementById("f");
+
+
+        btnUpload.addEventListener("click", (e) => {
+
+            console.log('e', e)
+
+            const fileReader = new FileReader();
+
+            const theFile = f.files[0];
+
+            fileReader.onload = async (ev) => {
+
+                const CHUNK_SIZE = 1000;
+
+                // Get number of chunks
+                const chunkCount = ev.target.result.byteLength / CHUNK_SIZE;
+
+                console.log("Read successfully");
+
+                console.log('ev.target.result', ev.target.result)
+
+                // Create unique file name
+                const fileName = Math.random() * 1000 + (theFile.name);
+
+                // Loop through all the chunks (+1 for remainder from chunkCount)
+
+                for (let chunkId = 0; chunkId < chunkCount + 1; chunkId++) {
+
+                    // Get chunk based on current chunk and chunk size by slicing it from the array buffer
+                    const chunk = ev.target.result.slice(chunkId * CHUNK_SIZE, chunkId * CHUNK_SIZE + CHUNK_SIZE);
+
+                    // Have to await to send each chunk before sending next chunk
+                    await fetch("http://localhost:8080/upload", {
+                        "method": "POST",
+                        "headers": {
+                            "content-type": "application/octet-stream",
+                            "content-length": chunk.length,
+                            "file-name": fileName, //custom header
+                        },
+                        "body": chunk,
+                    });
+
+                    // Update progress indicator
+                    divOutput.textContent = Math.round(chunkId * 100 / chunkCount, 0);
+
+                }
+
+                console.log('ev.target.result.byteLength', ev.target.result.byteLength)
+            }
+
+            fileReader.readAsArrayBuffer(theFile);
+
+        });
+
+
+        // Notes and Cons:
+        /*
+        
+        -If one chunk fails, file is corrupted - require idempotency with chunk IDs.
+         Currently chunk is just appended to file as it is received to reconstruct the file.
+
+        -No resumability
+
+        -Can make it stateless by writing file to a DB and hosting on multiple servers.
+
+        -Can upload multiple files by looping through files array.
+        */
+
+    </script>
+</body>
+
+</html>
